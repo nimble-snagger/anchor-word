@@ -12,7 +12,15 @@ const MIN_START_WORD_LEN = 4;
 const MIN_WORD_LEN = 2;
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const LABEL_STRIP = 16; // px reserved for coordinate labels (column letters above, row numbers left of the play grid)
+
+// ---------- Mode: full word list (default, public beta) or reduced test list (?list=test) ----------
+// The test list is for debugging mechanics (it has lots of overlapping words, so overlays come up often),
+// and it also switches the coordinate labels on so screenshots are self-describing.
+const IS_TEST_MODE = new URLSearchParams(window.location.search).get('list') === 'test';
+const ACTIVE_WORD_POOL = IS_TEST_MODE ? WORD_POOL_TEST : WORD_POOL_FULL;
+const SHOW_COORDS = IS_TEST_MODE;
+const LABEL_STRIP = SHOW_COORDS ? 16 : 0; // px reserved for coordinate labels (column letters above, row numbers left of the play grid)
+
 
 // ---------- Coordinate display helpers ----------
 // Internal engine coords: x=0..GRID_W-1 (left to right), y=0..GRID_H-1 (TOP to bottom).
@@ -35,31 +43,48 @@ function displayCoord(x, y) {
 }
 
 // ---------- Word pool helpers ----------
+// The word list is just a big pool of words. How often each LENGTH comes up is controlled here, not by
+// the list: first a length is drawn using these target shares (roughly how often words of each length
+// appear in running English text), then a random word of that length is picked from the list.
+// Lengths the active list doesn't have are skipped and the remaining shares are renormalised, so the
+// same code works for the small test list.
+const LENGTH_SHARES = { 2: 19.5, 3: 23.3, 4: 20.0, 5: 11.9, 6: 8.3, 7: 7.1, 8: 4.7, 9: 3.1, 10: 2.0 };
+
 const wordsByLen = {};
-for (const w of WORD_POOL) {
+for (const w of ACTIVE_WORD_POOL) {
   const L = w.length;
   if (!wordsByLen[L]) wordsByLen[L] = [];
   wordsByLen[L].push(w.toUpperCase());
 }
 
-function randomWordMinLen(minLen) {
-  // Weight by how many words exist at each length, so a length with proportionally
-  // more words in the pool (reflecting its natural-text frequency) is picked more often.
-  const lens = Object.keys(wordsByLen).map(Number).filter(l => l >= minLen);
-  const weights = lens.map(l => wordsByLen[l].length);
+function pickWeightedLength(lens, weightOf) {
+  const weights = lens.map(weightOf);
   const total = weights.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
-  let chosenLen = lens[lens.length - 1];
   for (let i = 0; i < lens.length; i++) {
-    if (r < weights[i]) { chosenLen = lens[i]; break; }
+    if (r < weights[i]) return lens[i];
     r -= weights[i];
   }
-  const arr = wordsByLen[chosenLen];
+  return lens[lens.length - 1];
+}
+
+function randomFrom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Candidate words for play: length drawn from LENGTH_SHARES (renormalised over lengths available).
 function randomWordAnyLen() {
-  return randomWordMinLen(MIN_WORD_LEN);
+  const lens = Object.keys(wordsByLen).map(Number).filter(l => l >= MIN_WORD_LEN);
+  const L = pickWeightedLength(lens, l => LENGTH_SHARES[l] || 1);
+  return randomFrom(wordsByLen[L]);
+}
+
+// Starting (anchor) word: at least MIN_START_WORD_LEN letters, each available length equally likely,
+// so games don't usually begin with a tiny anchor.
+function randomStartWord() {
+  const lens = Object.keys(wordsByLen).map(Number).filter(l => l >= MIN_START_WORD_LEN);
+  const L = randomFrom(lens);
+  return randomFrom(wordsByLen[L]);
 }
 
 // ---------- Game state ----------
@@ -67,7 +92,7 @@ let state = null;
 
 function newGameState() {
   const board = new Board(GRID_W, GRID_H);
-  const startWord = randomWordMinLen(MIN_START_WORD_LEN);
+  const startWord = randomStartWord();
   // Place vertically, centred
   const x0 = Math.floor(GRID_W / 2);
   const y0 = Math.floor((GRID_H - startWord.length) / 2);
@@ -289,6 +314,7 @@ function render() {
   // Uses the bottom-left-origin convention (row 1 at the bottom) agreed for describing the board.
   const labelGroup = document.createElementNS(SVGNS, 'g');
   labelGroup.setAttribute('id', 'coordLabels');
+  if (SHOW_COORDS) {
   const gridScreenY0 = LABEL_STRIP + gridPxY0; // where the play grid's row 0 (top) sits in final SVG space
   for (let c = 0; c < GRID_W; c++) {
     const t = document.createElementNS(SVGNS, 'text');
@@ -307,6 +333,7 @@ function render() {
     labelGroup.appendChild(t);
   }
   svg.appendChild(labelGroup);
+  }
 
   host.appendChild(svg);
   updateScoreLabels();
@@ -690,4 +717,29 @@ document.getElementById('newGameBtn').addEventListener('click', () => {
   if (confirm('Start a new game? Current progress will be lost.')) startNewGame();
 });
 
+// ---------- How-to-play sheet ----------
+// Shown automatically on a device's first visit (remembered in localStorage), and reopenable any time
+// from the "How to play" button. Storage can be blocked (private browsing etc.), so every access is guarded.
+const HELP_SEEN_KEY = 'anchorword_help_seen_v1';
+
+function showHelp() {
+  document.getElementById('helpScreen').classList.remove('hidden');
+  document.getElementById('helpBody').scrollTop = 0;
+}
+function hideHelp() {
+  document.getElementById('helpScreen').classList.add('hidden');
+  try { localStorage.setItem(HELP_SEEN_KEY, '1'); } catch (e) { /* storage unavailable - fine */ }
+}
+function helpAlreadySeen() {
+  try { return localStorage.getItem(HELP_SEEN_KEY) === '1'; } catch (e) { return false; }
+}
+
+document.getElementById('helpBtn').addEventListener('click', showHelp);
+document.getElementById('helpCloseBtn').addEventListener('click', hideHelp);
+document.getElementById('helpScreen').addEventListener('click', (e) => {
+  if (e.target.id === 'helpScreen') hideHelp(); // tap outside the sheet to close
+});
+if (IS_TEST_MODE) document.getElementById('testBadge').hidden = false;
+
 startNewGame();
+if (!helpAlreadySeen()) showHelp();

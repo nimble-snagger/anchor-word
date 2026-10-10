@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Anchor Word</title>
+<title>Anchor Word (beta)</title>
 <style>
   :root {
     --paper: #f7f4ec;
@@ -304,6 +304,61 @@
     padding: 6px 12px;
   }
 
+
+  #testBadge {
+    margin-left: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--tally-neg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    vertical-align: middle;
+  }
+  #testBadge[hidden] { display: none; }
+
+  #headerButtons { display: flex; gap: 8px; }
+  .smallBtn { font-size: 12px; padding: 6px 12px; }
+
+  #helpScreen {
+    position: fixed;
+    inset: 0;
+    background: rgba(31, 41, 55, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+  }
+  #helpScreen.hidden { display: none; }
+  #helpSheet {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-radius: 6px;
+    width: 92%;
+    max-width: 560px;
+    max-height: 88vh;
+    max-height: 88dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  #helpBody {
+    overflow-y: auto;
+    padding: 20px 22px 8px;
+    -webkit-user-select: text;
+    user-select: text;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  #helpBody h2 { font-family: 'Space Mono', monospace; font-size: 20px; margin: 0 0 12px; }
+  #helpBody h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--anchor-gold); margin: 16px 0 4px; }
+  #helpBody p { margin: 4px 0; }
+  #helpBody ol, #helpBody ul { margin: 4px 0; padding-left: 22px; }
+  #helpBody li { margin: 2px 0; }
+  #helpBeta { font-size: 12px; color: var(--graphite-soft); margin-top: 16px; }
+  #helpFooter { padding: 12px 22px 16px; border-top: 1px solid var(--paper-line); display: flex; justify-content: flex-end; }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--paper-line); border-radius: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -313,14 +368,17 @@
 <div id="app">
   <header>
     <div>
-      <h1>Anchor Word <span id="versionTag">v0.4</span></h1>
+      <h1>Anchor Word <span id="versionTag">v0.5 beta</span><span id="testBadge" hidden>TEST LIST</span></h1>
       <div class="subtitle">Build outward from the anchor</div>
     </div>
     <div id="scoreSummary">
       <span class="pos" id="posScoreLabel">+0</span>
       <span class="neg" id="negScoreLabel">−0</span>
     </div>
-    <button id="newGameBtn">New game</button>
+    <div id="headerButtons">
+      <button id="helpBtn" class="smallBtn">How to play</button>
+      <button id="newGameBtn" class="smallBtn">New game</button>
+    </div>
   </header>
 
   <div id="boardWrap">
@@ -349,11 +407,61 @@
   </div>
 </div>
 
+<div id="helpScreen" class="hidden">
+  <div id="helpSheet" role="dialog" aria-label="How to play">
+    <div id="helpBody">
+      <h2>How to play Anchor Word</h2>
+
+      <h3>Goal</h3>
+      <p>Build the biggest tally of points you can before you run out of discards.</p>
+
+      <h3>Each turn</h3>
+      <p>You're given a word. You either place it on the grid or discard it. A discard costs 1 point and adds a mark to the right-hand margin.</p>
+
+      <h3>Starting out</h3>
+      <p>The game begins with one word in the middle of the grid, inside a gold box. This boxed area is your anchor.</p>
+
+      <h3>Placing a word</h3>
+      <ol>
+        <li>Tap a letter in your word.</li>
+        <li>The matching letters inside the box light up. Tap one.</li>
+        <li>Use the rotate buttons to turn the word to any of the 8 directions (across, up, down or diagonal). Flip reverses it.</li>
+        <li>Tap Place.</li>
+      </ol>
+      <p>A placement is allowed if:</p>
+      <ul>
+        <li>at least one letter lands on a matching letter inside the box,</li>
+        <li>any other letter that lands on an existing letter matches it, and</li>
+        <li>the whole word fits on the grid.</li>
+      </ul>
+      <p>Like a word search, letters on the board don't need to form words once they're placed.</p>
+
+      <h3>Scoring</h3>
+      <p>You score 1 point for every letter of your word that lands on an existing letter, anywhere on the grid (not just inside the box). Points are marked in the top margin, in fives.</p>
+
+      <h3>Growing the box</h3>
+      <p>The box can grow in two ways:</p>
+      <ol>
+        <li>Place a word whose letters all land on matching letters already on the grid, with at least one inside the box. The box stretches to include them.</li>
+        <li>When a whole side of the box is lined with letters and has no gaps, the box grows by itself to take them in, as far as the unbroken letters reach.</li>
+      </ol>
+      <p>Growing the box scores no points, but it gives you more letters to connect to.</p>
+
+      <h3>Ending the game</h3>
+      <p>The game ends when the right-hand margin is full. That takes 108 discards on the standard grid. Your final score is your points minus your discards.</p>
+
+      <p id="helpBeta">This is an early beta, so you may hit rough edges. Thanks for helping to test it.</p>
+    </div>
+    <div id="helpFooter"><button class="primary" id="helpCloseBtn">Got it</button></div>
+  </div>
+</div>
+
 <div id="overlayScreen" class="hidden">
   <div class="modal" id="modalContent"></div>
 </div>
 
 <script src="wordlist.js"></script>
+<script src="wordlist_test.js"></script>
 <script src="engine.js"></script>
 <script src="game.js"></script>
 </body>
